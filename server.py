@@ -24,16 +24,20 @@ class Server:
         self.server_ip = "127.0.0.1"
         self.server_port = 8000
 
+        #Customizable items that will be saved.
         self.users = {}
         self.ip_banlist = []
         self.ranks = ["User","Admin","Helper","OG","Gymbro","fat"] #User, Admin, Helper, OG, Gymbro, Fat
         self.power_levels = [1,4,3,2,2,0]
-        
+
+        #Global server variables not changable by user
         self.server = None
         self.running = True
         self.UserDictionaryLock = threading.Lock()
 
+        #Temporary variables, that delete its content after some time.
         self.announcelist = {}
+        self.kick_list = []
 
     
     def run_server(self):
@@ -68,7 +72,8 @@ class Server:
             if self.running:
                 self.shutdown()
             print("Mainloop exit")
-    
+
+
     def handle_client(self, client_socket, addr):
         print(f"Accepted connection from {addr[0]}:{addr[1]}")
         client_socket.settimeout(1)
@@ -96,7 +101,7 @@ class Server:
                         print(f"{addr[0]}:{addr[1]} failed to register {username}. (Contains unallowed characters)")
                     else:
                         client_socket.send("okay".encode("utf-8"))
-                        self.update_users(username, [client_socket, addr, "user"])
+                        self.update_users(username, [client_socket, addr, "User"], 0)
 
                         print(f"{addr[0]}:{addr[1]} registered with the name of {username}")
                         self.send_all_server(message=f"- {username} joined the server! -")
@@ -120,9 +125,16 @@ class Server:
                     elif message.lower() == "!help":
                         client_socket.send("help send.".encode("utf-8"))
                     elif message.lower() == "!list":
-                        pass
+                        for name in self.access_users().keys():
+                            client_socket.send(name.encode("utf-8"))
+                    elif message.lower() == "!whisper" or message.lower() == "!msg" or message.lower() == "!tell":
+                        message.split()
+                        
                     elif message.startswith("!"):
-                        client_socket.send("Unknown command. !help for help...".encode("utf-8"))
+                        level = self.power_levels[self.ranks.index(self.access_users()[username][2])]
+
+                        for item in self.commands(message[1:], level):
+                            client_socket.send(item.encode("utf-8"))
                     else:
                         self.send_all(message, client_socket, username)
                     print(f"Message from {username} ({addr[0]}:{addr[1]}): {message}")
@@ -133,7 +145,8 @@ class Server:
             try:
                 self.send_all_server(message=f"- {username} left the server! -")
                 client_socket.close()
-                self.update_users(username, None)
+                print("CRASH DEL")
+                self.update_users(username, None, 0)
             except Exception: print("Closed failed.")
 
             print(f"Connection to client ({addr[0]}:{addr[1]}) closed")
@@ -178,7 +191,7 @@ class Server:
     def console(self):
         while self.running:
             command = input()
-            self.commands(command)
+            self.commands(command, 4)
             #with patch_stdout():
             #    command = prompt()
             #    self.commands(command)
@@ -202,18 +215,22 @@ class Server:
             sleep(1)
             _exit(0)
 
-    def update_users(self, key, value):
+    def update_users(self, key, value, index):
         with self.UserDictionaryLock:
-            if value is None:
-                del self.users[key]
+            if value:
+                if key in self.users:
+                    self.users[key][index] = value
+                else:
+                    self.users[key] = value
             else:
-                self.users[key] = value
+                del self.users[key]
 
     def access_users(self):
         with self.UserDictionaryLock:
             return self.users.copy()
 
-    def commands(self, command):
+    def commands(self, command, level):
+        returnText = []
         try:
             def stop(self, command):
                 self.shutdown()
@@ -221,41 +238,46 @@ class Server:
 
             def banlist(self, command):
                 if len(self.ip_banlist) != 0:
-                    print("These users are banned:")
+                    returnText.append("These users are banned:")
                     for user in self.ip_banlist:
-                        print(user)
+                        returnText.append(user)
 
             def ban(self, command):
                 self.ip_banlist.append(command[1])
-                print("Banned : ", command[1])
+                returnText.append(f"Banned : {command[1]}")
 
             def unban(self, command):
                 self.ip_banlist.remove(command[1])
-                print("Unbanned : ", command[1])
+                returnText.append(f"Unbanned : {command[1]}")
 
             def kick(self, command):
-                if command[1] in self.access_users():
-                    print(1)
+                if command[1] in self.access_users().keys():
+                    returnText.append("1")
 
             def list(self, command):
-                print(self.access_users().keys())
+                returnText.append(self.access_users().keys())
 
             def rank(self, command):
-                list_ranks = lambda: print("There are following ranks:\n" + " ".join(self.ranks))
+                list_ranks = lambda: returnText.append("There are following ranks:\n" + " ".join(self.ranks))
                 if len(command) > 1:
                     if command[1].lower() == "add":
                         for rank in self.ranks:
                             if rank.lower() == command[2].lower() and command[3] in self.access_users():
-                                self.update_users(command[3][2], command[2])
+                                self.update_users(command[3], rank, 2)
                                 self.access_users()[command[3]][0].send(f"You got the rank {rank}!".encode("utf-8"))
-                                print(command[2] + " got the rank " + rank)
+                                returnText.append(f"{command[3]} got the rank {rank}")
+                                print(command[3] + " got the rank " + rank)
                                 break
                         else:
                             list_ranks()
                     elif command[1].lower() == "create":
-                        self.ranks.append(command[2])
-                        self.power_levels.append(command[3])
-                        print("Created " + command[2] + " rank.")
+                        if len(command) == 4:
+                            self.ranks.append(command[2])
+                            self.power_levels.append(command[3])
+                            returnText.append(f"Created {command[2]} rank.")
+                            print("Created " + command[2] + " rank.")
+                        else:
+                            returnText.append("Wrong format: rank create NAME POWERLEVEL")
                     elif command.lower() == "delete":
                         self.power_levels.remove(self.ranks.index(command[2]))
                         self.ranks.remove(command[2])
@@ -263,7 +285,7 @@ class Server:
                             if user[2] == command[2]:
                                 user[2] = self.ranks()
                 else:
-                    print("Ussage: rank add/create/delete/list NAME *RANK")
+                    returnText.append("")
 
             def shout(self, command):
                 command.remove("shout")
@@ -271,23 +293,28 @@ class Server:
 
             def announce(self, command):
                 if len(command) > 1 and is_valid_time(command[1]):
+                    for item in command[2:]:
+                        announceText = announceText + item
                     time_and_text = f" [Announcement] {command[2:]}"
                     announcement = {command[1]: time_and_text}
                     self.announcelist.update(announcement)
+                    returnText.append(f"Announcing at {command[1]} ^{time_and_text}^")
                     print(f"Announcing at {command[1]} ^{time_and_text}^")
                 else:
-                    print("Wrong format. Command must be:announce 10:10:00 Hello World!")
+                    returnText.append("Wrong format. Command must be:announce 10:10:00 Hello World!")
 
             def help(self, command):
                 print("Shutdown, Restart, Ban, Unban, banlist, kick, list, rank, shout, announce and help.")
 
-            functions = {"stop": stop, "shutdown" : stop, "banlist": banlist, "ban": ban, "unban": unban, "kick": kick,
-                         "list": list, "rank": rank, "shout": shout, "announce": announce, "help": help}
+            functions = {"stop": [stop, 4], "shutdown" : [stop, 4], "banlist": [banlist, 3], "ban": [ban, 3], "unban": [unban, 3], "kick": [kick, 3],
+                         "list": [list, 1], "rank": [rank, 4], "shout": [shout, 3], "announce": [announce, 1], "help": [help, 1]}
 
             command = command.split()
             if command[0] in functions.keys():
-                functions[command[0]](self, command)
+                if functions[command[0]][1] <= level:
+                    functions[command[0]][0](self, command)
 
+            return returnText
 
         except Exception as e:
             print("Error trying to execute command: " + e)

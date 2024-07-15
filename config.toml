@@ -1,0 +1,19 @@
+#Example config file, fully customizable!
+
+[server]
+server_ip = "127.0.0.1"
+server_port = 8000
+
+ip_banlist = []
+ranks = ["User", "Admin", "Helper", "OG", "Gymbro", "Fat"] # User, Admin, Helper, OG, Gymbro, Fat
+power_levels = [1, 4, 3, 2, 2, 0]
+
+[logging]
+enable_logging = true
+logging_file = "logs.txt"
+
+[user]
+enable_accounts = true
+
+password_requirement = { length = 6, special_chars = false, uppercase = false }
+user_db = "user.db"

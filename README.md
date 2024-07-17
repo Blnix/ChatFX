@@ -9,8 +9,8 @@ A global chat platform in the command line interface using the socket library.
 - ~~Getting Linux to work~~
 - ~~possibly remove unimportant librarys~~
 - ~~Adding option for account support~~
-- Adding saving to file / changing items dirrecly from file
-- Adding logging
+- ~~Adding saving to file / changing items dirrecly from file~~
+- ~~Adding logging~~
 
 
 

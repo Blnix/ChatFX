@@ -8,14 +8,15 @@ Also ChatFX is super customizable, you can easily change a lot, like adding comm
 ## Commands
 There are several commands:
 
-stop - Stops the server (surprising)
-banlist - List of all banned users
-ban - bans someone of the server
-unban - unbans someone from the server
-list - list all users
-rank - set, give and remove ranks from users
-shout - Shoutting
-announce - Setting up a message, that the server will send on a specific time
+- `stop` - Stops the server (surprising)
+- `banlist` - Lists all banned users
+- `ban` - Bans someone from the server
+- `unban` - Unbans someone from the server
+- `list` - Lists all users
+- `rank` - Set, give, or remove ranks from users
+- `shout` - Sends a shout message
+- `announce` - Sets up a message that the server will send at a specific time
+
 
 ## Configuration
 

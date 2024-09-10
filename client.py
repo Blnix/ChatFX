@@ -1,75 +1,85 @@
 import socket
 import threading
-from time import sleep
-from datetime import datetime
+from time import sleep, strftime
 from json import loads
 from pystyle import Colors, Colorate, Write
 from prompt_toolkit import prompt
 from prompt_toolkit.patch_stdout import patch_stdout
 
+
+def user_input(quest):
+    """For customized clients for example with a gui, you can just replace this with the input from your script."""
+    return input(quest)
+
+def println(text):
+    """For customized clients, for example with a gui, you can replace it with, for example a text message."""
+    print(text)
+
 def run_client(server_ip, server_port):
-    print("Connecting to " + server_ip + ":" + str(server_port))
+    println("Connecting to " + server_ip + ":" + str(server_port))
     try:
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client.connect((server_ip, server_port))
     except Exception as e:
-        print(f"Could not connect to the server: {e}")
+        println(f"Could not connect to the server: {e}")
         return None
 
     response = loads(client.recv(1024).decode("utf-8"))
-    if response.get("login"):
-        print(response.get("login"))
-    elif response.get("ban"):
-        print(response.get("ban"))
+    if "login" in response.keys():
+        println(response.get("login"))
+    elif "ban" in response.keys():
+        println(response.get("ban"))
         client.close()
         return None
 
     while True:
-        username = input("Enter your username: ")
+        username = user_input("Enter your username: ")
         client.send(username.encode("utf-8"))
         message = loads(client.recv(1024).decode("utf-8"))
         for key, value in message.items():
             if key == "userno":
-                print(value + "\n")
+                println(value + "\n")
             elif key == "con":
-                print(value)
+                println(value)
                 return client
             elif key == "getpass":
-                print(value)
+                println(value)
                 while True:
-                    password = input("Type your password: ")
+                    password = user_input("Type your password: ")
                     client.send(password.encode("utf-8"))
                     message = loads(client.recv(1024).decode("utf-8"))
                     for key, value in message.items():
                         if key == "wrongpass":
-                            print(value)
+                            println(value)
                         elif key == "con":
-                            print(value)
+                            println(value)
                             return client
+                        elif key == "ban":
+                            println(value)
             elif key == "createpass":
-                print(value)
+                println(value)
                 while True:
-                    password = input()
+                    password = user_input("")
                     client.send(password.encode("utf-8"))
                     message = loads(client.recv(1024).decode("utf-8"))
                     for key, value in message.items():
                         if key == "wrongpass" or key == "passno":
-                            print(value)
+                            println(value)
                         elif key == "con":
-                            print(value)
+                            println(value)
                             return client
 
 def send(client, stop_event):
     while not stop_event.is_set():
         try:
             with patch_stdout():
-                msg = prompt(f"{datetime.now().strftime('%H:%M')} |: ")
+                msg = prompt(f"{strftime('%H:%M')} |: ")
                 client.send(msg.encode("utf-8"))
                 if msg.lower() == "exit":
                     stop_event.set()
                     return
         except ConnectionError:
-            print("Connection error. Exiting...")
+            println("Connection error. Exiting...")
             stop_event.set()
 
 def listen(client, stop_event):
@@ -77,17 +87,17 @@ def listen(client, stop_event):
         try:
             response = loads(client.recv(1024).decode("utf-8"))
             if not response:
-                print("Server closed...")
+                println("Server closed...")
                 stop_event.set()
 
             for key, value in response.items():
+                println(f"{strftime('%H:%M')} | {value}")
                 if key in ["closed", "ban"]:
-                    print(value)
+                    println(value)
                     stop_event.set()
-                elif key == "msg":
-                    print(f"{datetime.now().strftime('%H:%M')} | {value}")
+
         except ConnectionError:
-            print("Connection error. Exiting...")
+            println("Connection error. Exiting...")
             stop_event.set()
 
 def close(client, stop_event):
@@ -95,7 +105,7 @@ def close(client, stop_event):
     client.shutdown(socket.SHUT_RDWR)
     client.close()
 
-print("Welcome to ChatFX! \n")
+println("Welcome to ChatFX! \n")
 server_ip = "127.0.0.1"
 server_port = 8000
 client = run_client(server_ip, server_port)
